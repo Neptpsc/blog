@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.blog.mapper.CommentMapper">
+
+    <resultMap id="CommentVOMap" type="com.blog.vo.CommentVO">
+        <id     property="id"         column="id"/>
+        <result property="parentId"   column="parent_id"/>
+        <result property="nickname"   column="nickname"/>
+        <result property="email"      column="email"/>
+        <result property="content"    column="content"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <!-- 查询根评论（parent_id IS NULL） -->
+    <select id="selectRootComments" resultMap="CommentVOMap">
+        SELECT id, parent_id, nickname, email, content, create_time
+        FROM blog_comment
+        WHERE article_id = #{articleId}
+          AND parent_id IS NULL
+          AND status = 1
+        ORDER BY create_time ASC
+    </select>
+
+    <!-- 查询子评论 -->
+    <select id="selectChildComments" resultMap="CommentVOMap">
+        SELECT id, parent_id, nickname, email, content, create_time
+        FROM blog_comment
+        WHERE parent_id = #{parentId}
+          AND status = 1
+        ORDER BY create_time ASC
+    </select>
+
+</mapper>

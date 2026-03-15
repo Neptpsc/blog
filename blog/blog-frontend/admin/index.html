@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>博客后台管理系统</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'PingFang SC','Helvetica Neue',Arial,sans-serif; background: #f0f2f5; }
+        #app { display: flex; height: 100vh; overflow: hidden; }
+
+        /* ===== 侧边菜单 ===== */
+        .aside {
+            width: 220px; background: #1e2a3a; color: #c0c4cc;
+            display: flex; flex-direction: column; flex-shrink: 0;
+            transition: width .25s;
+        }
+        .aside.collapsed { width: 64px; }
+        .logo-area {
+            height: 60px; display: flex; align-items: center; justify-content: center;
+            background: #1a2330; font-size: 16px; font-weight: 700;
+            color: #fff; border-bottom: 1px solid #2d3e50; overflow: hidden;
+        }
+        .logo-text { white-space: nowrap; }
+        .menu { flex: 1; overflow-y: auto; padding: 8px 0; }
+        .menu-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 20px; cursor: pointer;
+            transition: background .2s, color .2s; font-size: 14px;
+            white-space: nowrap; overflow: hidden;
+        }
+        .menu-item:hover { background: #2d3e50; color: #fff; }
+        .menu-item.active { background: #409eff; color: #fff; }
+        .menu-icon { font-size: 18px; flex-shrink: 0; }
+        .aside-footer { padding: 16px; border-top: 1px solid #2d3e50; }
+        .toggle-btn { cursor: pointer; font-size: 18px; color: #909399; width: 100%; text-align: center; }
+
+        /* ===== 主内容区 ===== */
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* 顶部栏 */
+        .topbar {
+            height: 60px; background: #fff; border-bottom: 1px solid #e4e7ed;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px; flex-shrink: 0; box-shadow: 0 1px 4px rgba(0,0,0,.06);
+        }
+        .breadcrumb { font-size: 14px; color: #606266; }
+        .user-info { display: flex; align-items: center; gap: 12px; font-size: 14px; }
+        .avatar-sm { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+
+        /* 内容区 */
+        .content-area { flex: 1; overflow-y: auto; padding: 24px; }
+
+        /* ===== 统计卡片 ===== */
+        .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        .stat-card {
+            background: #fff; border-radius: 8px; padding: 20px 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.06); display: flex;
+            align-items: center; gap: 16px;
+        }
+        .stat-icon { font-size: 36px; }
+        .stat-num { font-size: 28px; font-weight: 700; }
+        .stat-label { font-size: 13px; color: #909399; }
+        .stat-card.blue   { border-left: 4px solid #409eff; }
+        .stat-card.green  { border-left: 4px solid #67c23a; }
+        .stat-card.orange { border-left: 4px solid #e6a23c; }
+        .stat-card.red    { border-left: 4px solid #f56c6c; }
+
+        /* ===== 工具栏 ===== */
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .search-bar { display: flex; gap: 10px; }
+
+        /* ===== 表格卡片 ===== */
+        .table-card { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+
+        /* ===== 登录页 ===== */
+        .login-page {
+            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        }
+        .login-box { background: #fff; border-radius: 12px; padding: 40px; width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+        .login-title { text-align: center; font-size: 24px; font-weight: 700; color: #303133; margin-bottom: 32px; }
+    </style>
+</head>
+<body>
+
+<div id="admin-app">
+    <!-- ===== 登录页 ===== -->
+    <div class="login-page" v-if="!token">
+        <div class="login-box">
+            <div class="login-title">🔐 博客后台管理</div>
+            <el-form :model="loginForm" :rules="loginRules" ref="loginForm" label-position="top">
+                <el-form-item label="用户名" prop="username">
+                    <el-input v-model="loginForm.username" placeholder="请输入用户名" prefix-icon="el-icon-user" size="medium"></el-input>
+                </el-form-item>
+                <el-form-item label="密码" prop="password">
+                    <el-input v-model="loginForm.password" type="password" placeholder="请输入密码"
+                              prefix-icon="el-icon-lock" size="medium" @keyup.enter.native="handleLogin"></el-input>
+                </el-form-item>
+                <el-button type="primary" style="width:100%;margin-top:8px" size="medium"
+                           :loading="loginLoading" @click="handleLogin">登 录</el-button>
+            </el-form>
+        </div>
+    </div>
+
+    <!-- ===== 后台主界面 ===== -->
+    <template v-else>
+        <div id="app">
+            <!-- 侧边栏 -->
+            <div class="aside" :class="{ collapsed: sidebarCollapsed }">
+                <div class="logo-area">
+                    <span class="logo-text" v-show="!sidebarCollapsed">✨ 博客管理后台</span>
+                    <span v-show="sidebarCollapsed">✨</span>
+                </div>
+                <div class="menu">
+                    <div class="menu-item" :class="{ active: currentMenu === 'dashboard' }" @click="goto('dashboard')">
+                        <span class="menu-icon">📊</span>
+                        <span v-show="!sidebarCollapsed">仪表盘</span>
+                    </div>
+                    <div class="menu-item" :class="{ active: currentMenu === 'articles' }" @click="goto('articles')">
+                        <span class="menu-icon">📝</span>
+                        <span v-show="!sidebarCollapsed">文章管理</span>
+                    </div>
+                    <div class="menu-item" :class="{ active: currentMenu === 'edit' }" @click="goto('edit')">
+                        <span class="menu-icon">✏️</span>
+                        <span v-show="!sidebarCollapsed">写文章</span>
+                    </div>
+                    <div class="menu-item" :class="{ active: currentMenu === 'categories' }" @click="goto('categories')">
+                        <span class="menu-icon">📁</span>
+                        <span v-show="!sidebarCollapsed">分类管理</span>
+                    </div>
+                    <div class="menu-item" :class="{ active: currentMenu === 'tags' }" @click="goto('tags')">
+                        <span class="menu-icon">🏷</span>
+                        <span v-show="!sidebarCollapsed">标签管理</span>
+                    </div>
+                    <div class="menu-item" :class="{ active: currentMenu === 'comments' }" @click="goto('comments')">
+                        <span class="menu-icon">💬</span>
+                        <span v-show="!sidebarCollapsed">评论管理</span>
+                    </div>
+                    <div class="menu-item" :class="{ active: currentMenu === 'links' }" @click="goto('links')">
+                        <span class="menu-icon">🔗</span>
+                        <span v-show="!sidebarCollapsed">友链管理</span>
+                    </div>
+                    <div class="menu-item" :class="{ active: currentMenu === 'settings' }" @click="goto('settings')">
+                        <span class="menu-icon">⚙️</span>
+                        <span v-show="!sidebarCollapsed">系统设置</span>
+                    </div>
+                </div>
+                <div class="aside-footer">
+                    <div class="toggle-btn" @click="sidebarCollapsed = !sidebarCollapsed">
+                        {{ sidebarCollapsed ? '→' : '←' }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 主区域 -->
+            <div class="main">
+                <!-- 顶部栏 -->
+                <div class="topbar">
+                    <div class="breadcrumb">{{ menuTitles[currentMenu] }}</div>
+                    <div class="user-info">
+                        <img src="https://via.placeholder.com/32" class="avatar-sm" alt="头像">
+                        <span>{{ userInfo.nickname }}</span>
+                        <el-button type="text" @click="handleLogout">退出登录</el-button>
+                    </div>
+                </div>
+
+                <!-- 内容区 -->
+                <div class="content-area">
+
+                    <!-- ===== 仪表盘 ===== -->
+                    <div v-if="currentMenu === 'dashboard'">
+                        <div class="stat-grid">
+                            <div class="stat-card blue">
+                                <span class="stat-icon">📝</span>
+                                <div>
+                                    <div class="stat-num">{{ stats.articleCount }}</div>
+                                    <div class="stat-label">文章总数</div>
+                                </div>
+                            </div>
+                            <div class="stat-card green">
+                                <span class="stat-icon">💬</span>
+                                <div>
+                                    <div class="stat-num">{{ stats.commentCount }}</div>
+                                    <div class="stat-label">评论总数</div>
+                                </div>
+                            </div>
+                            <div class="stat-card orange">
+                                <span class="stat-icon">👁</span>
+                                <div>
+                                    <div class="stat-num">{{ stats.viewCount }}</div>
+                                    <div class="stat-label">总浏览量</div>
+                                </div>
+                            </div>
+                            <div class="stat-card red">
+                                <span class="stat-icon">🔗</span>
+                                <div>
+                                    <div class="stat-num">{{ stats.friendLinkCount }}</div>
+                                    <div class="stat-label">友链数量</div>
+                                </div>
+                            </div>
+                        </div>
+                        <el-card>
+                            <div slot="header">📊 快捷操作</div>
+                            <el-button type="primary" @click="goto('edit')">✏️ 写新文章</el-button>
+                            <el-button type="success" style="margin-left:10px" @click="goto('comments')">💬 审核评论</el-button>
+                            <el-button style="margin-left:10px" @click="goto('settings')">⚙️ 系统设置</el-button>
+                        </el-card>
+                    </div>
+
+                    <!-- ===== 文章管理 ===== -->
+                    <div v-if="currentMenu === 'articles'" class="table-card">
+                        <div class="toolbar">
+                            <div class="search-bar">
+                                <el-input v-model="articleSearch" placeholder="搜索文章标题..." clearable
+                                          style="width:240px" @keyup.enter.native="fetchAdminArticles">
+                                </el-input>
+                                <el-select v-model="articleStatusFilter" placeholder="状态筛选" clearable style="width:120px">
+                                    <el-option label="草稿" :value="0"></el-option>
+                                    <el-option label="已发布" :value="1"></el-option>
+                                    <el-option label="已下线" :value="2"></el-option>
+                                </el-select>
+                                <el-button type="primary" @click="fetchAdminArticles">搜索</el-button>
+                            </div>
+                            <el-button type="primary" icon="el-icon-plus" @click="goto('edit')">写文章</el-button>
+                        </div>
+                        <el-table :data="adminArticles" border stripe>
+                            <el-table-column prop="id" label="ID" width="80"></el-table-column>
+                            <el-table-column prop="title" label="标题" min-width="200">
+                                <template slot-scope="{ row }">
+                                    <el-tag type="danger" size="mini" v-if="row.isTop === 1" style="margin-right:6px">置顶</el-tag>
+                                    {{ row.title }}
+                                </template>
+                            </el-table-column>
+                            <el-table-column prop="categoryName" label="分类" width="120"></el-table-column>
+                            <el-table-column prop="viewCount" label="浏览量" width="90"></el-table-column>
+                            <el-table-column label="状态" width="100">
+                                <template slot-scope="{ row }">
+                                    <el-tag :type="['info','success','warning'][row.status]" size="small">
+                                        {{ ['草稿','已发布','已下线'][row.status] }}
+                                    </el-tag>
+                                </template>
+                            </el-table-column>
+                            <el-table-column prop="createTime" label="发布时间" width="160">
+                                <template slot-scope="{ row }">{{ formatDate(row.createTime) }}</template>
+                            </el-table-column>
+                            <el-table-column label="操作" width="220" fixed="right">
+                                <template slot-scope="{ row }">
+                                    <el-button type="text" @click="editArticle(row)">编辑</el-button>
+                                    <el-button type="text" @click="toggleArticleStatus(row)">
+                                        {{ row.status === 1 ? '下线' : '发布' }}
+                                    </el-button>
+                                    <el-button type="text" style="color:#f56c6c" @click="deleteArticle(row.id)">删除</el-button>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                        <el-pagination
+                            background layout="prev, pager, next, total"
+                            :total="adminArticleTotal" :page-size="10"
+                            :current-page.sync="adminArticlePage"
+                            @current-change="fetchAdminArticles"
+                            style="margin-top:16px;text-align:right">
+                        </el-pagination>
+                    </div>
+
+                    <!-- ===== 写文章 / 编辑文章 ===== -->
+                    <div v-if="currentMenu === 'edit'">
+                        <el-card>
+                            <div slot="header">{{ editForm.id ? '编辑文章' : '写新文章' }}</div>
+                            <el-form :model="editForm" :rules="editRules" ref="editForm" label-width="80px">
+                                <el-form-item label="标题" prop="title">
+                                    <el-input v-model="editForm.title" placeholder="请输入文章标题"></el-input>
+                                </el-form-item>
+                                <el-row :gutter="16">
+                                    <el-col :span="8">
+                                        <el-form-item label="分类" prop="categoryId">
+                                            <el-select v-model="editForm.categoryId" placeholder="选择分类" style="width:100%">
+                                                <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id"></el-option>
+                                            </el-select>
+                                        </el-form-item>
+                                    </el-col>
+                                    <el-col :span="8">
+                                        <el-form-item label="标签">
+                                            <el-select v-model="editForm.tagIds" multiple placeholder="选择标签" style="width:100%">
+                                                <el-option v-for="tag in allTags" :key="tag.id" :label="tag.name" :value="tag.id"></el-option>
+                                            </el-select>
+                                        </el-form-item>
+                                    </el-col>
+                                    <el-col :span="4">
+                                        <el-form-item label="状态">
+                                            <el-select v-model="editForm.status" style="width:100%">
+                                                <el-option label="草稿" :value="0"></el-option>
+                                                <el-option label="发布" :value="1"></el-option>
+                                            </el-select>
+                                        </el-form-item>
+                                    </el-col>
+                                    <el-col :span="4">
+                                        <el-form-item label="置顶">
+                                            <el-switch v-model="editForm.isTop" :active-value="1" :inactive-value="0"></el-switch>
+                                        </el-form-item>
+                                    </el-col>
+                                </el-row>
+                                <el-form-item label="封面图">
+                                    <el-input v-model="editForm.coverImg" placeholder="封面图URL（选填）"></el-input>
+                                </el-form-item>
+                                <el-form-item label="摘要">
+                                    <el-input type="textarea" v-model="editForm.summary" placeholder="摘要（留空则自动截取正文前200字）" rows="3"></el-input>
+                                </el-form-item>
+                                <el-form-item label="内容" prop="content">
+                                    <el-input type="textarea" v-model="editForm.content"
+                                              placeholder="请输入 Markdown 格式内容..." :rows="18"
+                                              style="font-family:monospace;font-size:14px"></el-input>
+                                </el-form-item>
+                                <el-form-item>
+                                    <el-button type="primary" @click="saveArticle(1)">发布</el-button>
+                                    <el-button @click="saveArticle(0)">保存草稿</el-button>
+                                    <el-button @click="goto('articles')">取消</el-button>
+                                </el-form-item>
+                            </el-form>
+                        </el-card>
+                    </div>
+
+                    <!-- ===== 分类管理 ===== -->
+                    <div v-if="currentMenu === 'categories'" class="table-card">
+                        <div class="toolbar">
+                            <span style="font-size:14px;color:#606266">共 {{ categories.length }} 个分类</span>
+                            <el-button type="primary" icon="el-icon-plus" @click="openCatDialog()">新增分类</el-button>
+                        </div>
+                        <el-table :data="categories" border stripe>
+                            <el-table-column prop="id" label="ID" width="80"></el-table-column>
+                            <el-table-column prop="name" label="分类名称" width="180"></el-table-column>
+                            <el-table-column prop="description" label="描述"></el-table-column>
+                            <el-table-column prop="articleCount" label="文章数" width="100"></el-table-column>
+                            <el-table-column label="操作" width="140">
+                                <template slot-scope="{ row }">
+                                    <el-button type="text" @click="openCatDialog(row)">编辑</el-button>
+                                    <el-button type="text" style="color:#f56c6c" @click="deleteCategory(row.id)">删除</el-button>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                    </div>
+
+                    <!-- ===== 标签管理 ===== -->
+                    <div v-if="currentMenu === 'tags'" class="table-card">
+                        <div class="toolbar">
+                            <span style="font-size:14px;color:#606266">共 {{ allTags.length }} 个标签</span>
+                            <el-button type="primary" icon="el-icon-plus" @click="openTagDialog()">新增标签</el-button>
+                        </div>
+                        <el-table :data="allTags" border stripe>
+                            <el-table-column prop="id" label="ID" width="80"></el-table-column>
+                            <el-table-column prop="name" label="标签名称" width="200"></el-table-column>
+                            <el-table-column prop="articleCount" label="文章数" width="100"></el-table-column>
+                            <el-table-column label="操作" width="140">
+                                <template slot-scope="{ row }">
+                                    <el-button type="text" @click="openTagDialog(row)">编辑</el-button>
+                                    <el-button type="text" style="color:#f56c6c" @click="deleteTag(row.id)">删除</el-button>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                    </div>
+
+                    <!-- ===== 评论管理 ===== -->
+                    <div v-if="currentMenu === 'comments'" class="table-card">
+                        <div class="toolbar">
+                            <el-radio-group v-model="commentStatusFilter" @change="fetchComments">
+                                <el-radio-button :label="0">待审核</el-radio-button>
+                                <el-radio-button :label="1">已通过</el-radio-button>
+                                <el-radio-button :label="2">已拒绝</el-radio-button>
+                            </el-radio-group>
+                        </div>
+                        <el-table :data="commentList" border stripe>
+                            <el-table-column prop="id" label="ID" width="80"></el-table-column>
+                            <el-table-column prop="articleId" label="文章ID" width="90"></el-table-column>
+                            <el-table-column prop="nickname" label="昵称" width="120"></el-table-column>
+                            <el-table-column prop="content" label="评论内容" min-width="250" show-overflow-tooltip></el-table-column>
+                            <el-table-column label="状态" width="100">
+                                <template slot-scope="{ row }">
+                                    <el-tag :type="['warning','success','danger'][row.status]" size="small">
+                                        {{ ['待审核','已通过','已拒绝'][row.status] }}
+                                    </el-tag>
+                                </template>
+                            </el-table-column>
+                            <el-table-column prop="createTime" label="评论时间" width="160">
+                                <template slot-scope="{ row }">{{ formatDate(row.createTime) }}</template>
+                            </el-table-column>
+                            <el-table-column label="操作" width="180">
+                                <template slot-scope="{ row }">
+                                    <el-button type="text" v-if="row.status === 0" @click="reviewComment(row.id, 1)">通过</el-button>
+                                    <el-button type="text" v-if="row.status === 0" style="color:#e6a23c" @click="reviewComment(row.id, 2)">拒绝</el-button>
+                                    <el-button type="text" style="color:#f56c6c" @click="deleteComment(row.id)">删除</el-button>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                    </div>
+
+                    <!-- ===== 友链管理 ===== -->
+                    <div v-if="currentMenu === 'links'" class="table-card">
+                        <div class="toolbar">
+                            <span></span>
+                            <el-button type="primary" icon="el-icon-plus" @click="openLinkDialog()">新增友链</el-button>
+                        </div>
+                        <el-table :data="friendLinks" border stripe>
+                            <el-table-column prop="id" label="ID" width="80"></el-table-column>
+                            <el-table-column prop="name" label="网站名称" width="160"></el-table-column>
+                            <el-table-column prop="url" label="URL" min-width="200" show-overflow-tooltip></el-table-column>
+                            <el-table-column prop="description" label="描述" min-width="150"></el-table-column>
+                            <el-table-column label="状态" width="100">
+                                <template slot-scope="{ row }">
+                                    <el-tag :type="row.status === 1 ? 'success' : 'warning'" size="small">
+                                        {{ row.status === 1 ? '已通过' : '待审核' }}
+                                    </el-tag>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="操作" width="140">
+                                <template slot-scope="{ row }">
+                                    <el-button type="text" @click="openLinkDialog(row)">编辑</el-button>
+                                    <el-button type="text" style="color:#f56c6c" @click="deleteLink(row.id)">删除</el-button>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                    </div>
+
+                    <!-- ===== 系统设置 ===== -->
+                    <div v-if="currentMenu === 'settings'">
+                        <el-card>
+                            <div slot="header">⚙️ 博客基本信息</div>
+                            <el-form :model="configForm" label-width="120px" style="max-width:600px">
+                                <el-form-item label="博客标题">
+                                    <el-input v-model="configForm.blogTitle"></el-input>
+                                </el-form-item>
+                                <el-form-item label="博客副标题">
+                                    <el-input v-model="configForm.blogSubtitle"></el-input>
+                                </el-form-item>
+                                <el-form-item label="博主名称">
+                                    <el-input v-model="configForm.authorName"></el-input>
+                                </el-form-item>
+                                <el-form-item label="博主简介">
+                                    <el-input type="textarea" v-model="configForm.authorIntro" rows="3"></el-input>
+                                </el-form-item>
+                                <el-form-item label="博主头像URL">
+                                    <el-input v-model="configForm.authorAvatar"></el-input>
+                                </el-form-item>
+                                <el-form-item label="GitHub地址">
+                                    <el-input v-model="configForm.githubUrl"></el-input>
+                                </el-form-item>
+                                <el-form-item label="联系邮箱">
+                                    <el-input v-model="configForm.email"></el-input>
+                                </el-form-item>
+                                <el-form-item label="ICP备案号">
+                                    <el-input v-model="configForm.blogIcp"></el-input>
+                                </el-form-item>
+                                <el-form-item>
+                                    <el-button type="primary" @click="saveConfig">保存设置</el-button>
+                                </el-form-item>
+                            </el-form>
+                        </el-card>
+                    </div>
+
+                </div><!-- /content-area -->
+            </div><!-- /main -->
+        </div><!-- /#app -->
+
+        <!-- ===== 弹窗：分类 ===== -->
+        <el-dialog :title="catForm.id ? '编辑分类' : '新增分类'" :visible.sync="catDialogVisible" width="400px">
+            <el-form :model="catForm" :rules="catRules" ref="catForm" label-width="80px">
+                <el-form-item label="名称" prop="name">
+                    <el-input v-model="catForm.name" placeholder="分类名称"></el-input>
+                </el-form-item>
+                <el-form-item label="描述">
+                    <el-input type="textarea" v-model="catForm.description" rows="3"></el-input>
+                </el-form-item>
+                <el-form-item label="排序">
+                    <el-input-number v-model="catForm.sort" :min="0" :max="9999"></el-input-number>
+                </el-form-item>
+            </el-form>
+            <div slot="footer">
+                <el-button @click="catDialogVisible = false">取消</el-button>
+                <el-button type="primary" @click="saveCategory">确定</el-button>
+            </div>
+        </el-dialog>
+
+        <!-- ===== 弹窗：标签 ===== -->
+        <el-dialog :title="tagForm.id ? '编辑标签' : '新增标签'" :visible.sync="tagDialogVisible" width="360px">
+            <el-form :model="tagForm" :rules="tagRules" ref="tagForm" label-width="80px">
+                <el-form-item label="名称" prop="name">
+                    <el-input v-model="tagForm.name" placeholder="标签名称"></el-input>
+                </el-form-item>
+            </el-form>
+            <div slot="footer">
+                <el-button @click="tagDialogVisible = false">取消</el-button>
+                <el-button type="primary" @click="saveTag">确定</el-button>
+            </div>
+        </el-dialog>
+
+        <!-- ===== 弹窗：友链 ===== -->
+        <el-dialog :title="linkForm.id ? '编辑友链' : '新增友链'" :visible.sync="linkDialogVisible" width="480px">
+            <el-form :model="linkForm" ref="linkForm" label-width="80px">
+                <el-form-item label="名称">
+                    <el-input v-model="linkForm.name"></el-input>
+                </el-form-item>
+                <el-form-item label="URL">
+                    <el-input v-model="linkForm.url"></el-input>
+                </el-form-item>
+                <el-form-item label="图标URL">
+                    <el-input v-model="linkForm.avatar"></el-input>
+                </el-form-item>
+                <el-form-item label="描述">
+                    <el-input v-model="linkForm.description"></el-input>
+                </el-form-item>
+                <el-form-item label="状态">
+                    <el-select v-model="linkForm.status">
+                        <el-option label="待审核" :value="0"></el-option>
+                        <el-option label="已通过" :value="1"></el-option>
+                    </el-select>
+                </el-form-item>
+            </el-form>
+            <div slot="footer">
+                <el-button @click="linkDialogVisible = false">取消</el-button>
+                <el-button type="primary" @click="saveLink">确定</el-button>
+            </div>
+        </el-dialog>
+    </template>
+</div>
+
+<script src="https://cdn.bootcdn.net/ajax/libs/vue/2.7.14/vue.min.js"></script>
+<script src="https://unpkg.com/element-ui/lib/index.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/axios/1.3.4/axios.min.js"></script>
+<script>
+const BASE_URL = (window.BLOG_API_BASE) || 'http://localhost:8080/api';
+const TOKEN_KEY = 'blog_token';
+const USER_KEY  = 'blog_user';
+
+// Axios 实例
+const http = axios.create({ baseURL: BASE_URL, timeout: 15000 });
+http.interceptors.request.use(config => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+    return config;
+});
+http.interceptors.response.use(
+    res => res.data,
+    err => {
+        const msg = err.response?.data?.message || '网络错误，请稍后重试';
+        Vue.prototype.$message.error(msg);
+        return Promise.reject(err);
+    }
+);
+
+new Vue({
+    el: '#admin-app',
+    data: {
+        token: localStorage.getItem(TOKEN_KEY) || '',
+        userInfo: JSON.parse(localStorage.getItem(USER_KEY) || '{}'),
+        loginLoading: false,
+        loginForm: { username: '', password: '' },
+        loginRules: {
+            username: [{ required: true, message: '请输入用户名' }],
+            password: [{ required: true, message: '请输入密码' }]
+        },
+        sidebarCollapsed: false,
+        currentMenu: 'dashboard',
+        menuTitles: {
+            dashboard: '仪表盘', articles: '文章管理', edit: '写文章',
+            categories: '分类管理', tags: '标签管理', comments: '评论管理',
+            links: '友链管理', settings: '系统设置'
+        },
+        stats: { articleCount: 0, commentCount: 0, viewCount: 0, friendLinkCount: 0 },
+        adminArticles: [], adminArticleTotal: 0, adminArticlePage: 1,
+        articleSearch: '', articleStatusFilter: null,
+        categories: [], allTags: [],
+        commentList: [], commentStatusFilter: 0,
+        friendLinks: [],
+        configForm: {},
+        editForm: { id: null, title: '', content: '', summary: '', coverImg: '', categoryId: null, tagIds: [], status: 1, isTop: 0 },
+        editRules: {
+            title: [{ required: true, message: '标题不能为空' }],
+            categoryId: [{ required: true, message: '请选择分类' }],
+            content: [{ required: true, message: '内容不能为空' }]
+        },
+        catDialogVisible: false, catForm: { id: null, name: '', description: '', sort: 0 },
+        catRules: { name: [{ required: true, message: '请输入分类名称' }] },
+        tagDialogVisible: false, tagForm: { id: null, name: '' },
+        tagRules: { name: [{ required: true, message: '请输入标签名称' }] },
+        linkDialogVisible: false, linkForm: { id: null, name: '', url: '', avatar: '', description: '', status: 1 }
+    },
+    methods: {
+        /* ===== 登录/登出 ===== */
+        handleLogin() {
+            this.$refs.loginForm.validate(async valid => {
+                if (!valid) return;
+                this.loginLoading = true;
+                try {
+                    const res = await http.post('/auth/login', this.loginForm);
+                    if (res.code === 200) {
+                        this.token = res.data.token;
+                        this.userInfo = res.data;
+                        localStorage.setItem(TOKEN_KEY, this.token);
+                        localStorage.setItem(USER_KEY, JSON.stringify(res.data));
+                        this.$message.success('登录成功');
+                        this.goto('dashboard');
+                    } else { this.$message.error(res.message); }
+                } finally { this.loginLoading = false; }
+            });
+        },
+        async handleLogout() {
+            await http.post('/auth/logout');
+            localStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem(USER_KEY);
+            this.token = '';
+        },
+        /* ===== 导航 ===== */
+        goto(menu) {
+            this.currentMenu = menu;
+            if (menu === 'dashboard') this.fetchStats();
+            if (menu === 'articles') this.fetchAdminArticles();
+            if (menu === 'categories') this.fetchCategories();
+            if (menu === 'tags') this.fetchTags();
+            if (menu === 'comments') this.fetchComments();
+            if (menu === 'links') this.fetchLinks();
+            if (menu === 'settings') this.fetchConfig();
+            if (menu === 'edit') { this.fetchCategories(); this.fetchTags(); }
+        },
+        /* ===== 仪表盘 ===== */
+        async fetchStats() {
+            const [a, t] = await Promise.allSettled([
+                http.get('/admin/articles', { params: { pageNum:1, pageSize:1 } }),
+                http.get('/tags')
+            ]);
+            if (a.status === 'fulfilled' && a.value.code === 200) {
+                this.stats.articleCount = a.value.data.total;
+            }
+        },
+        /* ===== 文章 ===== */
+        async fetchAdminArticles() {
+            const res = await http.get('/admin/articles', { params: {
+                pageNum: this.adminArticlePage, pageSize: 10,
+                keyword: this.articleSearch || undefined,
+                status: this.articleStatusFilter
+            }});
+            if (res.code === 200) {
+                this.adminArticles = res.data.records;
+                this.adminArticleTotal = res.data.total;
+            }
+        },
+        editArticle(row) {
+            this.editForm = { ...row, tagIds: row.tags ? row.tags.map(t => t.id) : [] };
+            this.goto('edit');
+        },
+        async saveArticle(status) {
+            this.$refs.editForm.validate(async valid => {
+                if (!valid) return;
+                this.editForm.status = status;
+                const res = await http.post('/admin/articles', this.editForm);
+                if (res.code === 200) {
+                    this.$message.success(status === 1 ? '发布成功' : '已保存草稿');
+                    this.editForm = { id:null, title:'', content:'', summary:'', coverImg:'', categoryId:null, tagIds:[], status:1, isTop:0 };
+                    this.goto('articles');
+                }
+            });
+        },
+        async toggleArticleStatus(row) {
+            const newStatus = row.status === 1 ? 2 : 1;
+            const res = await http.put(`/admin/articles/${row.id}/status`, null, { params: { status: newStatus } });
+            if (res.code === 200) { this.$message.success('操作成功'); this.fetchAdminArticles(); }
+        },
+        async deleteArticle(id) {
+            await this.$confirm('确定删除该文章吗？', '警告', { type: 'warning' });
+            const res = await http.delete(`/admin/articles/${id}`);
+            if (res.code === 200) { this.$message.success('删除成功'); this.fetchAdminArticles(); }
+        },
+        /* ===== 分类 ===== */
+        async fetchCategories() {
+            const res = await http.get('/categories');
+            if (res.code === 200) this.categories = res.data;
+        },
+        openCatDialog(row) {
+            this.catForm = row ? { ...row } : { id: null, name: '', description: '', sort: 0 };
+            this.catDialogVisible = true;
+        },
+        async saveCategory() {
+            this.$refs.catForm.validate(async valid => {
+                if (!valid) return;
+                const method = this.catForm.id ? 'put' : 'post';
+                const res = await http[method]('/admin/categories', this.catForm);
+                if (res.code === 200) {
+                    this.$message.success('保存成功');
+                    this.catDialogVisible = false;
+                    this.fetchCategories();
+                }
+            });
+        },
+        async deleteCategory(id) {
+            await this.$confirm('确定删除该分类吗？', '警告', { type: 'warning' });
+            const res = await http.delete(`/admin/categories/${id}`);
+            if (res.code === 200) { this.$message.success('删除成功'); this.fetchCategories(); }
+        },
+        /* ===== 标签 ===== */
+        async fetchTags() {
+            const res = await http.get('/tags');
+            if (res.code === 200) this.allTags = res.data;
+        },
+        openTagDialog(row) {
+            this.tagForm = row ? { ...row } : { id: null, name: '' };
+            this.tagDialogVisible = true;
+        },
+        async saveTag() {
+            this.$refs.tagForm.validate(async valid => {
+                if (!valid) return;
+                const method = this.tagForm.id ? 'put' : 'post';
+                const res = await http[method]('/admin/tags', this.tagForm);
+                if (res.code === 200) {
+                    this.$message.success('保存成功');
+                    this.tagDialogVisible = false;
+                    this.fetchTags();
+                }
+            });
+        },
+        async deleteTag(id) {
+            await this.$confirm('确定删除该标签吗？', '警告', { type: 'warning' });
+            const res = await http.delete(`/admin/tags/${id}`);
+            if (res.code === 200) { this.$message.success('删除成功'); this.fetchTags(); }
+        },
+        /* ===== 评论 ===== */
+        async fetchComments() {
+            const res = await http.get('/admin/comments', { params: { status: this.commentStatusFilter } });
+            if (res.code === 200) this.commentList = res.data.records || res.data;
+        },
+        async reviewComment(id, status) {
+            const res = await http.put(`/admin/comments/${id}/status`, null, { params: { status } });
+            if (res.code === 200) { this.$message.success('操作成功'); this.fetchComments(); }
+        },
+        async deleteComment(id) {
+            await this.$confirm('确定删除该评论吗？', '警告', { type: 'warning' });
+            const res = await http.delete(`/admin/comments/${id}`);
+            if (res.code === 200) { this.$message.success('删除成功'); this.fetchComments(); }
+        },
+        /* ===== 友链 ===== */
+        async fetchLinks() {
+            const res = await http.get('/friend-links');
+            if (res.code === 200) this.friendLinks = res.data;
+        },
+        openLinkDialog(row) {
+            this.linkForm = row ? { ...row } : { id:null, name:'', url:'', avatar:'', description:'', status:1 };
+            this.linkDialogVisible = true;
+        },
+        async saveLink() {
+            const method = this.linkForm.id ? 'put' : 'post';
+            const res = await http[method]('/admin/friend-links', this.linkForm);
+            if (res.code === 200) {
+                this.$message.success('保存成功');
+                this.linkDialogVisible = false;
+                this.fetchLinks();
+            }
+        },
+        async deleteLink(id) {
+            await this.$confirm('确定删除该友链吗？', '警告', { type: 'warning' });
+            const res = await http.delete(`/admin/friend-links/${id}`);
+            if (res.code === 200) { this.$message.success('删除成功'); this.fetchLinks(); }
+        },
+        /* ===== 系统设置 ===== */
+        async fetchConfig() {
+            const res = await http.get('/config/all');
+            if (res.code === 200) this.configForm = res.data;
+        },
+        async saveConfig() {
+            const res = await http.put('/admin/config', this.configForm);
+            if (res.code === 200) this.$message.success('保存成功');
+        },
+        /* ===== 工具 ===== */
+        formatDate(d) {
+            if (!d) return '';
+            const dt = new Date(d);
+            return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+        }
+    },
+    mounted() {
+        if (this.token) this.goto('dashboard');
+    }
+});
+</script>
+</body>
+</html>
