@@ -144,4 +144,35 @@
             update_time  = NOW()
     </insert>
 
+    <!-- 删除文章的所有标签关联 -->
+    <delete id="deleteArticleTags">
+        DELETE FROM blog_article_tag WHERE article_id = #{articleId}
+    </delete>
+
+    <!-- 批量插入文章-标签关联 -->
+    <insert id="insertArticleTags">
+        INSERT INTO blog_article_tag (article_id, tag_id) VALUES
+        <foreach collection="tagIds" item="tagId" separator=",">
+            (#{articleId}, #{tagId})
+        </foreach>
+    </insert>
+
+    <!-- 上一篇 -->
+    <select id="selectPrevArticle" resultType="com.blog.vo.ArticleNavVO">
+        SELECT id, title, cover_img AS coverImg
+        FROM blog_article
+        WHERE id &lt; #{id} AND status = 1 AND deleted = 0
+        ORDER BY id DESC
+        LIMIT 1
+    </select>
+
+    <!-- 下一篇 -->
+    <select id="selectNextArticle" resultType="com.blog.vo.ArticleNavVO">
+        SELECT id, title, cover_img AS coverImg
+        FROM blog_article
+        WHERE id &gt; #{id} AND status = 1 AND deleted = 0
+        ORDER BY id ASC
+        LIMIT 1
+    </select>
+
 </mapper>

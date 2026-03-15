@@ -6,6 +6,7 @@ import com.blog.domain.Article;
 import com.blog.dto.ArticleDTO;
 import com.blog.exception.BusinessException;
 import com.blog.mapper.ArticleMapper;
+import com.blog.mapper.TagMapper;
 import com.blog.query.ArticleQuery;
 import com.blog.result.PageResult;
 import com.blog.service.ArticleService;
@@ -13,6 +14,8 @@ import com.blog.utils.StringUtils;
 import com.blog.vo.ArchiveVO;
 import com.blog.vo.ArticleDetailVO;
 import com.blog.vo.ArticleListVO;
+import com.blog.vo.ArticleNavVO;
+import com.blog.vo.TagVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -22,8 +25,8 @@ import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -35,6 +38,7 @@ import java.util.List;
 public class ArticleServiceImpl implements ArticleService {
 
     private final ArticleMapper articleMapper;
+    private final TagMapper tagMapper;
     private final RedisTemplate<String, Object> redisTemplate;
 
     @Override
@@ -56,6 +60,14 @@ public class ArticleServiceImpl implements ArticleService {
         if (vo == null) {
             throw new BusinessException(404, "文章不存在");
         }
+        // 填充标签列表
+        List<TagVO> tags = tagMapper.selectTagsByArticleId(id);
+        vo.setTags(tags);
+        // 填充上下篇导航
+        ArticleNavVO prev = articleMapper.selectPrevArticle(id);
+        ArticleNavVO next = articleMapper.selectNextArticle(id);
+        vo.setPrevArticle(prev);
+        vo.setNextArticle(next);
         return vo;
     }
 
@@ -80,6 +92,12 @@ public class ArticleServiceImpl implements ArticleService {
             article.setSummary(StringUtils.buildSummary(dto.getContent(), 200));
         }
         articleMapper.insertOrUpdate(article);
+        // 维护文章-标签关联
+        Long articleId = article.getId();
+        articleMapper.deleteArticleTags(articleId);
+        if (!CollectionUtils.isEmpty(dto.getTagIds())) {
+            articleMapper.insertArticleTags(articleId, dto.getTagIds());
+        }
     }
 
     @Override
@@ -120,24 +138,25 @@ public class ArticleServiceImpl implements ArticleService {
     @Scheduled(cron = "0 * * * * ?")
     public void syncViewCountToDb() {
         String pattern = RedisConstants.ARTICLE_VIEW_COUNT + "*";
-        List<String> keys = new ArrayList<>();
         try (Cursor<String> cursor = redisTemplate.scan(
                 ScanOptions.scanOptions().match(pattern).count(200).build())) {
-            cursor.forEachRemaining(keys::add);
+            cursor.forEachRemaining(key -> {
+                Object val = redisTemplate.opsForValue().get(key);
+                if (val == null) return;
+                int count;
+                try {
+                    count = Integer.parseInt(val.toString());
+                } catch (NumberFormatException e) {
+                    log.warn("浏览量解析失败，key={}, value={}", key, val);
+                    return;
+                }
+                if (count <= 0) return;
+                Long articleId = Long.parseLong(
+                        key.replace(RedisConstants.ARTICLE_VIEW_COUNT, ""));
+                articleMapper.incrementViewCount(articleId, count);
+                redisTemplate.delete(key);
+                log.debug("文章[{}]浏览量同步到DB: +{}", articleId, count);
+            });
         }
-        if (keys.isEmpty()) {
-            return;
-        }
-        keys.forEach(key -> {
-            Object val = redisTemplate.opsForValue().get(key);
-            if (val == null) return;
-            int count = Integer.parseInt(val.toString());
-            if (count <= 0) return;
-            Long articleId = Long.parseLong(
-                    key.replace(RedisConstants.ARTICLE_VIEW_COUNT, ""));
-            articleMapper.incrementViewCount(articleId, count);
-            redisTemplate.delete(key);
-            log.debug("文章[{}]浏览量同步到DB: +{}", articleId, count);
-        });
     }
 }

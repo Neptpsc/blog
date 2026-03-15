@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.blog.domain.Article;
 import com.blog.vo.ArchiveVO;
 import com.blog.vo.ArticleListVO;
+import com.blog.vo.ArticleNavVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -54,4 +55,25 @@ public interface ArticleMapper extends BaseMapper<Article> {
      * 插入或更新文章（ON DUPLICATE KEY UPDATE）
      */
     void insertOrUpdate(Article article);
+
+    /**
+     * 删除文章的所有标签关联
+     */
+    void deleteArticleTags(@Param("articleId") Long articleId);
+
+    /**
+     * 批量插入文章-标签关联
+     */
+    void insertArticleTags(@Param("articleId") Long articleId,
+                           @Param("tagIds") List<Long> tagIds);
+
+    /**
+     * 查询上一篇（id 比当前小且已发布的最新一篇）
+     */
+    ArticleNavVO selectPrevArticle(@Param("id") Long id);
+
+    /**
+     * 查询下一篇（id 比当前大且已发布的最旧一篇）
+     */
+    ArticleNavVO selectNextArticle(@Param("id") Long id);
 }
