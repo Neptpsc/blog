@@ -23,8 +23,13 @@
 # Logs and databases #
 ######################
 *.log
-*.sql
 *.sqlite
+
+# 不忽略项目 SQL 初始化脚本
+!blog/sql/*.sql
+
+# 环境变量文件（含敏感信息，不提交）
+.env
 
 # OS generated files #
 ######################
