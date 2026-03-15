@@ -16,14 +16,15 @@ import com.blog.vo.ArticleListVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.CollectionUtils;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 /**
  * 文章 Service 实现
@@ -114,13 +115,17 @@ public class ArticleServiceImpl implements ArticleService {
     }
 
     /**
-     * 定时任务：每分钟将 Redis 浏览量同步到 MySQL
+     * 定时任务：每分钟将 Redis 浏览量同步到 MySQL（使用 SCAN 避免阻塞）
      */
-    @Scheduled(fixedRate = 60_000)
+    @Scheduled(cron = "0 * * * * ?")
     public void syncViewCountToDb() {
-        Set<String> keys = redisTemplate.keys(
-                RedisConstants.ARTICLE_VIEW_COUNT + "*");
-        if (CollectionUtils.isEmpty(keys)) {
+        String pattern = RedisConstants.ARTICLE_VIEW_COUNT + "*";
+        List<String> keys = new ArrayList<>();
+        try (Cursor<String> cursor = redisTemplate.scan(
+                ScanOptions.scanOptions().match(pattern).count(200).build())) {
+            cursor.forEachRemaining(keys::add);
+        }
+        if (keys.isEmpty()) {
             return;
         }
         keys.forEach(key -> {

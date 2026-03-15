@@ -49,4 +49,9 @@ public interface ArticleMapper extends BaseMapper<Article> {
      * 批量增加浏览量
      */
     void incrementViewCount(@Param("id") Long id, @Param("count") int count);
+
+    /**
+     * 插入或更新文章（ON DUPLICATE KEY UPDATE）
+     */
+    void insertOrUpdate(Article article);
 }

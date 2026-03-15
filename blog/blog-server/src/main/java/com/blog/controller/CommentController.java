@@ -1,6 +1,8 @@
 package com.blog.controller;
 
+import com.blog.domain.Comment;
 import com.blog.dto.CommentDTO;
+import com.blog.result.PageResult;
 import com.blog.result.Result;
 import com.blog.service.CommentService;
 import com.blog.vo.CommentVO;
@@ -36,6 +38,18 @@ public class CommentController {
     public Result<Void> submitComment(@RequestBody @Validated CommentDTO dto) {
         commentService.submitComment(dto);
         return Result.success();
+    }
+
+    /**
+     * 后台：分页查询评论（按状态筛选）
+     */
+    @GetMapping("/admin/comments")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result<PageResult<Comment>> listAdminComments(
+            @RequestParam(required = false) Integer status,
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "20") Integer pageSize) {
+        return Result.success(commentService.listAdminComments(status, pageNum, pageSize));
     }
 
     /**

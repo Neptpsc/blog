@@ -1,11 +1,14 @@
 package com.blog.service.impl;
 
 import cn.hutool.core.util.HtmlUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.blog.constant.SystemConstants;
 import com.blog.domain.Comment;
 import com.blog.dto.CommentDTO;
 import com.blog.exception.BusinessException;
 import com.blog.mapper.CommentMapper;
+import com.blog.result.PageResult;
 import com.blog.service.CommentService;
 import com.blog.vo.CommentVO;
 import lombok.RequiredArgsConstructor;
@@ -63,5 +66,14 @@ public class CommentServiceImpl implements CommentService {
     @Transactional(rollbackFor = Exception.class)
     public void deleteComment(Long id) {
         commentMapper.deleteById(id);
+    }
+
+    @Override
+    public PageResult<Comment> listAdminComments(Integer status, Integer pageNum, Integer pageSize) {
+        LambdaQueryWrapper<Comment> wrapper = new LambdaQueryWrapper<Comment>()
+                .eq(status != null, Comment::getStatus, status)
+                .orderByDesc(Comment::getCreateTime);
+        Page<Comment> page = commentMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+        return new PageResult<>(page.getTotal(), page.getRecords());
     }
 }

@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人技术博客</title>
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/highlight.js/11.7.0/styles/github.min.css">
+    <style>
+        /* ===== 全局重置 ===== */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'PingFang SC','Helvetica Neue',Arial,sans-serif; background: #f5f7fa; color: #303133; line-height: 1.75; font-size: 15px; }
+        a { text-decoration: none; color: inherit; }
+        img { max-width: 100%; }
+
+        /* ===== 导航栏 ===== */
+        .navbar {
+            position: sticky; top: 0; z-index: 100;
+            background: #fff; border-bottom: 1px solid #e4e7ed;
+            box-shadow: 0 2px 8px rgba(0,0,0,.06);
+        }
+        .navbar-inner {
+            max-width: 1200px; margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between;
+            height: 60px; padding: 0 24px;
+        }
+        .logo { font-size: 20px; font-weight: 700; color: #409eff; }
+        .nav-links { display: flex; gap: 28px; }
+        .nav-links a { font-size: 14px; color: #606266; transition: color .2s; }
+        .nav-links a:hover, .nav-links a.active { color: #409eff; }
+        .nav-search {
+            display: flex; align-items: center; border: 1px solid #dcdfe6;
+            border-radius: 20px; overflow: hidden; background: #f5f7fa;
+        }
+        .nav-search input {
+            border: none; outline: none; background: transparent;
+            padding: 6px 14px; font-size: 13px; width: 180px;
+        }
+        .nav-search button {
+            border: none; background: #409eff; color: #fff;
+            padding: 7px 14px; cursor: pointer; font-size: 13px;
+        }
+
+        /* ===== 主布局 ===== */
+        .main-wrap { max-width: 1200px; margin: 24px auto; padding: 0 24px; display: flex; gap: 24px; }
+        .main-content { flex: 1; min-width: 0; }
+        .sidebar { width: 300px; flex-shrink: 0; }
+
+        /* ===== 卡片通用 ===== */
+        .card {
+            background: #fff; border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,.06);
+            padding: 20px; margin-bottom: 20px;
+        }
+        .card-title { font-size: 16px; font-weight: 600; color: #303133; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid #409eff; }
+
+        /* ===== 文章卡片 ===== */
+        .article-card { background: #fff; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.06); margin-bottom: 20px; overflow: hidden; transition: transform .2s, box-shadow .2s; }
+        .article-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.1); }
+        .article-card .cover { width: 100%; height: 200px; object-fit: cover; display: block; }
+        .article-card .article-body { padding: 20px; }
+        .article-meta { display: flex; align-items: center; gap: 16px; font-size: 13px; color: #909399; margin-bottom: 10px; }
+        .article-meta .top-badge { background: #f56c6c; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+        .article-title { font-size: 20px; font-weight: 600; color: #303133; margin-bottom: 10px; cursor: pointer; transition: color .2s; }
+        .article-title:hover { color: #409eff; }
+        .article-summary { color: #606266; font-size: 14px; line-height: 1.8; margin-bottom: 14px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .article-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+        .tag { font-size: 12px; padding: 2px 10px; border-radius: 10px; background: #ecf5ff; color: #409eff; cursor: pointer; transition: background .2s; }
+        .tag:hover { background: #409eff; color: #fff; }
+        .read-more { font-size: 13px; color: #409eff; cursor: pointer; }
+
+        /* ===== 分页 ===== */
+        .pagination { display: flex; justify-content: center; gap: 8px; margin: 20px 0; }
+        .pagination button {
+            border: 1px solid #dcdfe6; background: #fff; color: #606266;
+            padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 14px;
+            transition: all .2s;
+        }
+        .pagination button:hover, .pagination button.active { background: #409eff; color: #fff; border-color: #409eff; }
+        .pagination button:disabled { cursor: not-allowed; opacity: .5; }
+
+        /* ===== 侧边栏博主信息 ===== */
+        .author-card { text-align: center; }
+        .author-card .avatar { width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 12px; display: block; object-fit: cover; border: 3px solid #409eff; }
+        .author-name { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+        .author-intro { font-size: 13px; color: #909399; line-height: 1.6; margin-bottom: 14px; }
+        .author-stats { display: flex; justify-content: space-around; border-top: 1px solid #f0f0f0; padding-top: 14px; }
+        .stat-item { text-align: center; }
+        .stat-num { font-size: 22px; font-weight: 700; color: #409eff; }
+        .stat-label { font-size: 12px; color: #909399; }
+
+        /* ===== 侧边栏分类 ===== */
+        .category-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 12px; border-radius: 6px; cursor: pointer; transition: background .2s;
+        }
+        .category-item:hover { background: #ecf5ff; color: #409eff; }
+        .category-count { background: #f0f2f5; color: #909399; font-size: 12px; padding: 1px 8px; border-radius: 10px; }
+
+        /* ===== 标签云 ===== */
+        .tag-cloud { display: flex; flex-wrap: wrap; gap: 8px; }
+
+        /* ===== 归档 ===== */
+        .archive-item { padding: 8px 0; border-bottom: 1px dashed #f0f0f0; display: flex; justify-content: space-between; cursor: pointer; transition: color .2s; font-size: 14px; }
+        .archive-item:hover { color: #409eff; }
+
+        /* ===== 加载动画 ===== */
+        .loading { text-align: center; padding: 40px; color: #909399; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #f0f2f5; border-top-color: #409eff; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ===== 空状态 ===== */
+        .empty { text-align: center; padding: 60px 0; color: #909399; }
+        .empty-icon { font-size: 48px; margin-bottom: 12px; }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 768px) {
+            .main-wrap { flex-direction: column; padding: 0 16px; }
+            .sidebar { width: 100%; }
+            .nav-links { display: none; }
+            .nav-search input { width: 120px; }
+        }
+
+        /* ===== 文章详情页 ===== */
+        #detail-page { display: none; }
+        #detail-page .detail-header { margin-bottom: 24px; }
+        #detail-page .detail-title { font-size: 28px; font-weight: 700; color: #303133; margin-bottom: 12px; line-height: 1.4; }
+        #detail-page .article-content { line-height: 2; color: #303133; }
+        #detail-page .article-content h1,
+        #detail-page .article-content h2,
+        #detail-page .article-content h3 { margin: 20px 0 10px; color: #303133; font-weight: 600; }
+        #detail-page .article-content p  { margin-bottom: 14px; }
+        #detail-page .article-content pre { background: #f6f8fa; border-radius: 6px; padding: 16px; overflow-x: auto; margin-bottom: 16px; }
+        #detail-page .article-content code { font-family: 'Fira Code','Source Code Pro',monospace; font-size: 13px; }
+        #detail-page .article-content :not(pre) > code { background: #f0f2f5; padding: 2px 6px; border-radius: 3px; color: #e83e8c; font-size: 13px; }
+        #detail-page .article-content blockquote { border-left: 4px solid #409eff; padding: 10px 16px; background: #ecf5ff; margin: 14px 0; border-radius: 0 6px 6px 0; color: #606266; }
+        #detail-page .article-content img { border-radius: 6px; }
+        #detail-page .article-content ul,
+        #detail-page .article-content ol { padding-left: 24px; margin-bottom: 14px; }
+        #detail-page .article-content table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
+        #detail-page .article-content th, #detail-page .article-content td { border: 1px solid #e4e7ed; padding: 8px 12px; text-align: left; }
+        #detail-page .article-content th { background: #f5f7fa; }
+
+        /* ===== 评论区 ===== */
+        .comment-section { margin-top: 32px; }
+        .comment-form { margin-bottom: 24px; }
+        .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
+        .form-input { flex: 1; border: 1px solid #dcdfe6; border-radius: 6px; padding: 9px 12px; font-size: 14px; outline: none; transition: border-color .2s; }
+        .form-input:focus { border-color: #409eff; }
+        .form-textarea { width: 100%; border: 1px solid #dcdfe6; border-radius: 6px; padding: 10px 12px; font-size: 14px; outline: none; resize: vertical; min-height: 100px; font-family: inherit; transition: border-color .2s; }
+        .form-textarea:focus { border-color: #409eff; }
+        .btn { padding: 9px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: background .2s; }
+        .btn-primary { background: #409eff; color: #fff; }
+        .btn-primary:hover { background: #337ab7; }
+        .comment-item { padding: 16px 0; border-bottom: 1px solid #f0f2f5; }
+        .comment-item:last-child { border-bottom: none; }
+        .comment-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .commenter-name { font-weight: 600; font-size: 14px; color: #303133; }
+        .comment-time { font-size: 12px; color: #c0c4cc; }
+        .comment-content { font-size: 14px; color: #606266; line-height: 1.7; }
+        .comment-children { padding-left: 24px; border-left: 3px solid #ecf5ff; margin-top: 12px; }
+
+        /* ===== 页脚 ===== */
+        .footer { text-align: center; color: #909399; font-size: 13px; padding: 24px; border-top: 1px solid #e4e7ed; margin-top: 40px; background: #fff; }
+    </style>
+</head>
+<body>
+
+<!-- 导航栏 -->
+<nav class="navbar">
+    <div class="navbar-inner">
+        <a class="logo" href="#" @click.prevent="goHome">✨ 个人技术博客</a>
+        <div class="nav-links">
+            <a href="#" :class="{ active: page === 'home' }" @click.prevent="goHome">首页</a>
+            <a href="#" :class="{ active: page === 'archive' }" @click.prevent="goPage('archive')">归档</a>
+            <a href="#" :class="{ active: page === 'category' }" @click.prevent="goPage('category')">分类</a>
+            <a href="#" :class="{ active: page === 'tags' }" @click.prevent="goPage('tags')">标签</a>
+            <a href="#" :class="{ active: page === 'links' }" @click.prevent="goPage('links')">友链</a>
+            <a href="/admin/index.html" target="_blank">后台</a>
+        </div>
+        <div class="nav-search">
+            <input v-model="searchKeyword" placeholder="搜索文章..." @keyup.enter="doSearch">
+            <button @click="doSearch">搜索</button>
+        </div>
+    </div>
+</nav>
+
+<div id="app" v-cloak>
+    <div class="main-wrap">
+        <!-- ===== 文章列表页 ===== -->
+        <div class="main-content" v-show="page === 'home'">
+            <div v-if="loading" class="loading">
+                <div class="spinner"></div>
+                <p>加载中...</p>
+            </div>
+            <div v-else-if="articles.length === 0" class="empty card">
+                <div class="empty-icon">📝</div>
+                <p>暂无文章</p>
+            </div>
+            <div v-else>
+                <div class="article-card" v-for="article in articles" :key="article.id">
+                    <img v-if="article.coverImg" :src="article.coverImg" class="cover" :alt="article.title">
+                    <div class="article-body">
+                        <div class="article-meta">
+                            <span class="top-badge" v-if="article.isTop === 1">置顶</span>
+                            <span>📁 {{ article.categoryName }}</span>
+                            <span>📅 {{ formatDate(article.createTime) }}</span>
+                            <span>👁 {{ article.viewCount }}</span>
+                            <span>💬 {{ article.commentCount }}</span>
+                        </div>
+                        <div class="article-title" @click="openArticle(article.id)">{{ article.title }}</div>
+                        <div class="article-summary">{{ article.summary }}</div>
+                        <div class="article-tags">
+                            <span class="tag" v-for="tag in article.tags" :key="tag.id" @click="filterByTag(tag.id)">
+                                # {{ tag.name }}
+                            </span>
+                        </div>
+                        <span class="read-more" @click="openArticle(article.id)">阅读全文 →</span>
+                    </div>
+                </div>
+                <div class="pagination">
+                    <button :disabled="pageNum <= 1" @click="changePage(pageNum - 1)">上一页</button>
+                    <button v-for="p in totalPages" :key="p" :class="{ active: p === pageNum }" @click="changePage(p)">{{ p }}</button>
+                    <button :disabled="pageNum >= totalPages" @click="changePage(pageNum + 1)">下一页</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 文章详情页 ===== -->
+        <div class="main-content" v-show="page === 'detail'">
+            <div class="card" v-if="currentArticle">
+                <div class="detail-header">
+                    <h1 class="detail-title">{{ currentArticle.title }}</h1>
+                    <div class="article-meta">
+                        <span>📁 {{ currentArticle.categoryName }}</span>
+                        <span>📅 {{ formatDate(currentArticle.createTime) }}</span>
+                        <span>👁 {{ currentArticle.viewCount }}</span>
+                        <span>✍️ {{ currentArticle.authorNickname }}</span>
+                    </div>
+                    <div class="article-tags" style="margin-top:10px">
+                        <span class="tag" v-for="tag in currentArticle.tags" :key="tag.id"># {{ tag.name }}</span>
+                    </div>
+                </div>
+                <div class="article-content" v-html="renderedContent"></div>
+            </div>
+            <!-- 评论区 -->
+            <div class="card comment-section" v-if="currentArticle">
+                <div class="card-title">💬 评论 ({{ comments.length }})</div>
+                <div class="comment-form">
+                    <div class="form-row">
+                        <input class="form-input" v-model="commentForm.nickname" placeholder="昵称 *">
+                        <input class="form-input" v-model="commentForm.email" placeholder="邮箱（选填）" type="email">
+                    </div>
+                    <textarea class="form-textarea" v-model="commentForm.content" placeholder="留下你的评论..."></textarea>
+                    <button class="btn btn-primary" style="margin-top:10px" @click="submitComment">发表评论</button>
+                    <span style="font-size:13px;color:#909399;margin-left:12px">评论将在审核通过后显示</span>
+                </div>
+                <div v-if="comments.length === 0" class="empty" style="padding:20px 0">
+                    <p>暂无评论，快来抢沙发吧！</p>
+                </div>
+                <div class="comment-item" v-for="comment in comments" :key="comment.id">
+                    <div class="comment-header">
+                        <span class="commenter-name">{{ comment.nickname }}</span>
+                        <span class="comment-time">{{ formatDate(comment.createTime) }}</span>
+                    </div>
+                    <div class="comment-content">{{ comment.content }}</div>
+                    <div class="comment-children" v-if="comment.children && comment.children.length > 0">
+                        <div class="comment-item" v-for="child in comment.children" :key="child.id">
+                            <div class="comment-header">
+                                <span class="commenter-name">{{ child.nickname }}</span>
+                                <span class="comment-time">{{ formatDate(child.createTime) }}</span>
+                            </div>
+                            <div class="comment-content">{{ child.content }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 归档页 ===== -->
+        <div class="main-content" v-show="page === 'archive'">
+            <div class="card">
+                <div class="card-title">📅 文章归档</div>
+                <div v-if="archives.length === 0" class="empty" style="padding:20px 0"><p>暂无数据</p></div>
+                <div v-else>
+                    <div class="archive-item" v-for="arc in archives" :key="arc.yearMonth" @click="filterByMonth(arc.yearMonth)">
+                        <span>{{ arc.yearMonth }}</span>
+                        <span class="category-count">{{ arc.articleCount }} 篇</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 分类页 ===== -->
+        <div class="main-content" v-show="page === 'category'">
+            <div class="card">
+                <div class="card-title">📁 所有分类</div>
+                <div v-if="categories.length === 0" class="empty" style="padding:20px 0"><p>暂无数据</p></div>
+                <div v-else>
+                    <div class="category-item" v-for="cat in categories" :key="cat.id" @click="filterByCategory(cat.id)">
+                        <span>{{ cat.name }}</span>
+                        <span class="category-count">{{ cat.articleCount }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 标签页 ===== -->
+        <div class="main-content" v-show="page === 'tags'">
+            <div class="card">
+                <div class="card-title">🏷 标签云</div>
+                <div class="tag-cloud" v-if="tags.length > 0">
+                    <span
+                        v-for="tag in tags" :key="tag.id"
+                        class="tag"
+                        :style="{ fontSize: tag.fontSize + 'em' }"
+                        @click="filterByTag(tag.id)">
+                        # {{ tag.name }} ({{ tag.articleCount }})
+                    </span>
+                </div>
+                <div v-else class="empty" style="padding:20px 0"><p>暂无标签</p></div>
+            </div>
+        </div>
+
+        <!-- ===== 友链页 ===== -->
+        <div class="main-content" v-show="page === 'links'">
+            <div class="card">
+                <div class="card-title">🔗 友情链接</div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px">
+                    <a :href="link.url" target="_blank" v-for="link in friendLinks" :key="link.id"
+                       style="display:flex;align-items:center;gap:10px;padding:12px;border:1px solid #e4e7ed;border-radius:8px;transition:box-shadow .2s"
+                       onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'"
+                       onmouseout="this.style.boxShadow='none'">
+                        <img :src="link.avatar || '/favicon.ico'" style="width:40px;height:40px;border-radius:50%;object-fit:cover" :alt="link.name">
+                        <div>
+                            <div style="font-weight:600;font-size:14px">{{ link.name }}</div>
+                            <div style="font-size:12px;color:#909399">{{ link.description }}</div>
+                        </div>
+                    </a>
+                </div>
+                <div v-if="friendLinks.length === 0" class="empty" style="padding:20px 0"><p>暂无友链</p></div>
+            </div>
+        </div>
+
+        <!-- ===== 侧边栏 ===== -->
+        <aside class="sidebar">
+            <!-- 博主信息 -->
+            <div class="card author-card">
+                <img :src="siteConfig.authorAvatar || 'https://via.placeholder.com/80'" class="avatar" alt="头像">
+                <div class="author-name">{{ siteConfig.authorName }}</div>
+                <div class="author-intro">{{ siteConfig.authorIntro }}</div>
+                <div class="author-stats">
+                    <div class="stat-item">
+                        <div class="stat-num">{{ totalArticles }}</div>
+                        <div class="stat-label">文章</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-num">{{ categories.length }}</div>
+                        <div class="stat-label">分类</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-num">{{ tags.length }}</div>
+                        <div class="stat-label">标签</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 热门分类 -->
+            <div class="card">
+                <div class="card-title">📁 文章分类</div>
+                <div class="category-item" v-for="cat in categories.slice(0, 8)" :key="cat.id" @click="filterByCategory(cat.id)">
+                    <span>{{ cat.name }}</span>
+                    <span class="category-count">{{ cat.articleCount }}</span>
+                </div>
+            </div>
+
+            <!-- 标签云 -->
+            <div class="card">
+                <div class="card-title">🏷 标签</div>
+                <div class="tag-cloud">
+                    <span v-for="tag in tags.slice(0, 20)" :key="tag.id" class="tag"
+                          :style="{ fontSize: tag.fontSize + 'em' }"
+                          @click="filterByTag(tag.id)">
+                        {{ tag.name }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- 归档 -->
+            <div class="card">
+                <div class="card-title">📅 最近归档</div>
+                <div class="archive-item" v-for="arc in archives.slice(0, 6)" :key="arc.yearMonth" @click="filterByMonth(arc.yearMonth)">
+                    <span>{{ arc.yearMonth }}</span>
+                    <span class="category-count">{{ arc.articleCount }}</span>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <p>{{ siteConfig.blogTitle }} · {{ siteConfig.blogSubtitle }}</p>
+        <p style="margin-top:6px">
+            Powered by SpringBoot + Vue.js
+            <span v-if="siteConfig.blogIcp"> | {{ siteConfig.blogIcp }}</span>
+        </p>
+    </footer>
+</div>
+
+<!-- 依赖 -->
+<script src="https://cdn.bootcdn.net/ajax/libs/vue/2.7.14/vue.min.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/axios/1.3.4/axios.min.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+<script>
+// API 基础地址（可在部署时通过 window.BLOG_API_BASE 覆盖）
+const BASE_URL = (window.BLOG_API_BASE) || 'http://localhost:8080/api';
+
+// Axios 默认配置
+axios.defaults.baseURL = BASE_URL;
+axios.defaults.timeout = 10000;
+
+// ===== 简易 Markdown 渲染器 =====
+function simpleMarkdown(md) {
+    if (!md) return '';
+    let html = md
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        // 代码块
+        .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
+            `<pre><code class="${lang}">${code}</code></pre>`)
+        // 行内代码
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // 标题
+        .replace(/^######\s(.+)$/gm, '<h6>$1</h6>')
+        .replace(/^#####\s(.+)$/gm, '<h5>$1</h5>')
+        .replace(/^####\s(.+)$/gm, '<h4>$1</h4>')
+        .replace(/^###\s(.+)$/gm, '<h3>$1</h3>')
+        .replace(/^##\s(.+)$/gm, '<h2>$1</h2>')
+        .replace(/^#\s(.+)$/gm, '<h1>$1</h1>')
+        // 引用
+        .replace(/^>\s(.+)$/gm, '<blockquote>$1</blockquote>')
+        // 粗体 斜体
+        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        // 链接
+        .replace(/\[(.+?)]\((.+?)\)/g, '<a href="$2" target="_blank">$1</a>')
+        // 图片
+        .replace(/!\[(.+?)]\((.+?)\)/g, '<img src="$2" alt="$1">')
+        // 无序列表
+        .replace(/^\s*[-*]\s(.+)$/gm, '<li>$1</li>')
+        // 有序列表
+        .replace(/^\d+\.\s(.+)$/gm, '<li>$1</li>')
+        // 换行
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+    return `<p>${html}</p>`;
+}
+
+const app = new Vue({
+    el: '#app',
+    data: {
+        page: 'home',
+        loading: false,
+        articles: [],
+        pageNum: 1,
+        pageSize: 8,
+        total: 0,
+        currentArticle: null,
+        comments: [],
+        categories: [],
+        tags: [],
+        archives: [],
+        friendLinks: [],
+        siteConfig: {
+            blogTitle: '个人技术博客',
+            blogSubtitle: '记录技术，分享成长',
+            authorName: '博主',
+            authorIntro: '热爱技术的开发者',
+            authorAvatar: '',
+            blogIcp: ''
+        },
+        searchKeyword: '',
+        filterCategoryId: null,
+        filterTagId: null,
+        commentForm: { nickname: '', email: '', content: '' }
+    },
+    computed: {
+        totalPages() { return Math.ceil(this.total / this.pageSize) || 1; },
+        totalArticles() { return this.total; },
+        renderedContent() {
+            if (!this.currentArticle) return '';
+            const html = simpleMarkdown(this.currentArticle.content);
+            this.$nextTick(() => {
+                document.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
+            });
+            return html;
+        }
+    },
+    methods: {
+        async fetchArticles() {
+            this.loading = true;
+            try {
+                const params = {
+                    pageNum: this.pageNum, pageSize: this.pageSize,
+                    categoryId: this.filterCategoryId,
+                    tagId: this.filterTagId,
+                    keyword: this.searchKeyword || undefined
+                };
+                const { data } = await axios.get('/articles', { params });
+                if (data.code === 200) {
+                    this.articles = data.data.records;
+                    this.total = data.data.total;
+                }
+            } catch (e) { console.error('获取文章列表失败', e); }
+            finally { this.loading = false; }
+        },
+        async fetchSidebarData() {
+            const [cats, tgs, arcs] = await Promise.allSettled([
+                axios.get('/categories'),
+                axios.get('/tags'),
+                axios.get('/archives')
+            ]);
+            if (cats.status === 'fulfilled' && cats.value.data.code === 200)
+                this.categories = cats.value.data.data;
+            if (tgs.status === 'fulfilled' && tgs.value.data.code === 200) {
+                const tags = tgs.value.data.data;
+                const max = Math.max(...tags.map(t => t.articleCount), 1);
+                this.tags = tags.map(t => ({
+                    ...t,
+                    fontSize: 0.9 + (t.articleCount / max) * 0.7
+                }));
+            }
+            if (arcs.status === 'fulfilled' && arcs.value.data.code === 200)
+                this.archives = arcs.value.data.data;
+        },
+        async openArticle(id) {
+            try {
+                const { data } = await axios.get(`/articles/${id}`);
+                if (data.code === 200) {
+                    this.currentArticle = data.data;
+                    this.page = 'detail';
+                    window.scrollTo(0, 0);
+                    await this.fetchComments(id);
+                }
+            } catch (e) { console.error('获取文章详情失败', e); }
+        },
+        async fetchComments(articleId) {
+            try {
+                const { data } = await axios.get(`/articles/${articleId}/comments`);
+                if (data.code === 200) this.comments = data.data;
+            } catch (e) { this.comments = []; }
+        },
+        async submitComment() {
+            const { nickname, email, content } = this.commentForm;
+            if (!nickname || !content) return alert('昵称和评论内容不能为空');
+            try {
+                const { data } = await axios.post('/comments', {
+                    articleId: this.currentArticle.id,
+                    nickname, email, content
+                });
+                if (data.code === 200) {
+                    alert('评论提交成功，审核通过后将显示');
+                    this.commentForm = { nickname: '', email: '', content: '' };
+                } else { alert(data.message); }
+            } catch (e) { alert('提交失败，请稍后重试'); }
+        },
+        async fetchFriendLinks() {
+            try {
+                const { data } = await axios.get('/friend-links');
+                if (data.code === 200) this.friendLinks = data.data;
+            } catch (e) { this.friendLinks = []; }
+        },
+        goHome() {
+            this.page = 'home';
+            this.filterCategoryId = null;
+            this.filterTagId = null;
+            this.searchKeyword = '';
+            this.pageNum = 1;
+            this.fetchArticles();
+        },
+        goPage(p) {
+            this.page = p;
+            if (p === 'links') this.fetchFriendLinks();
+        },
+        changePage(p) { this.pageNum = p; this.fetchArticles(); window.scrollTo(0, 0); },
+        filterByCategory(id) {
+            this.filterCategoryId = id; this.filterTagId = null;
+            this.pageNum = 1; this.page = 'home'; this.fetchArticles();
+        },
+        filterByTag(id) {
+            this.filterTagId = id; this.filterCategoryId = null;
+            this.pageNum = 1; this.page = 'home'; this.fetchArticles();
+        },
+        filterByMonth(ym) {
+            this.searchKeyword = ym; this.filterCategoryId = null; this.filterTagId = null;
+            this.pageNum = 1; this.page = 'home'; this.fetchArticles();
+        },
+        doSearch() {
+            this.filterCategoryId = null; this.filterTagId = null;
+            this.pageNum = 1; this.page = 'home'; this.fetchArticles();
+        },
+        formatDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+    },
+    mounted() {
+        this.fetchArticles();
+        this.fetchSidebarData();
+    }
+});
+</script>
+</body>
+</html>

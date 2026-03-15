@@ -45,7 +45,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // 禁用 CSRF（使用 JWT 无状态认证）
+            // CSRF：本应用采用无状态 JWT Bearer Token 认证，不使用 Cookie/Session，
+            // 浏览器不会自动发送凭证，因此 CSRF 攻击不适用，可安全禁用。
             .csrf().disable()
             // 禁用 Session
             .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)

@@ -1,6 +1,8 @@
 package com.blog.service;
 
+import com.blog.domain.Comment;
 import com.blog.dto.CommentDTO;
+import com.blog.result.PageResult;
 import com.blog.vo.CommentVO;
 
 import java.util.List;
@@ -29,4 +31,9 @@ public interface CommentService {
      * 后台：删除评论
      */
     void deleteComment(Long id);
+
+    /**
+     * 后台：分页查询评论（按状态筛选）
+     */
+    PageResult<Comment> listAdminComments(Integer status, Integer pageNum, Integer pageSize);
 }
