@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.blog.mapper.ArticleMapper">
+
+    <!-- 文章列表 VO ResultMap -->
+    <resultMap id="ArticleListVOMap" type="com.blog.vo.ArticleListVO">
+        <id     property="id"           column="id"/>
+        <result property="title"        column="title"/>
+        <result property="summary"      column="summary"/>
+        <result property="coverImg"     column="cover_img"/>
+        <result property="isTop"        column="is_top"/>
+        <result property="viewCount"    column="view_count"/>
+        <result property="commentCount" column="comment_count"/>
+        <result property="createTime"   column="create_time"/>
+        <result property="categoryId"   column="category_id"/>
+        <result property="categoryName" column="category_name"/>
+    </resultMap>
+
+    <!-- 文章详情 VO ResultMap -->
+    <resultMap id="ArticleDetailVOMap" type="com.blog.vo.ArticleDetailVO">
+        <id     property="id"             column="id"/>
+        <result property="title"          column="title"/>
+        <result property="content"        column="content"/>
+        <result property="coverImg"       column="cover_img"/>
+        <result property="viewCount"      column="view_count"/>
+        <result property="commentCount"   column="comment_count"/>
+        <result property="likeCount"      column="like_count"/>
+        <result property="createTime"     column="create_time"/>
+        <result property="updateTime"     column="update_time"/>
+        <result property="categoryId"     column="category_id"/>
+        <result property="categoryName"   column="category_name"/>
+        <result property="authorNickname" column="author_nickname"/>
+        <result property="authorAvatar"   column="author_avatar"/>
+    </resultMap>
+
+    <!-- 查询文章列表 -->
+    <select id="selectArticleListVO" resultMap="ArticleListVOMap">
+        SELECT
+            a.id, a.title, a.summary, a.cover_img, a.is_top,
+            a.view_count, a.comment_count, a.create_time,
+            a.category_id, c.name AS category_name
+        FROM blog_article a
+        LEFT JOIN blog_category c ON a.category_id = c.id
+        <where>
+            a.deleted = 0
+            <if test="status != null">
+                AND a.status = #{status}
+            </if>
+            <if test="categoryId != null">
+                AND a.category_id = #{categoryId}
+            </if>
+            <if test="tagId != null">
+                AND EXISTS (
+                    SELECT 1 FROM blog_article_tag at
+                    WHERE at.article_id = a.id AND at.tag_id = #{tagId}
+                )
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (a.title LIKE CONCAT('%', #{keyword}, '%')
+                     OR a.summary LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY a.is_top DESC, a.create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 统计文章总数 -->
+    <select id="countArticles" resultType="long">
+        SELECT COUNT(*)
+        FROM blog_article a
+        <where>
+            a.deleted = 0
+            <if test="status != null">
+                AND a.status = #{status}
+            </if>
+            <if test="categoryId != null">
+                AND a.category_id = #{categoryId}
+            </if>
+            <if test="tagId != null">
+                AND EXISTS (
+                    SELECT 1 FROM blog_article_tag at
+                    WHERE at.article_id = a.id AND at.tag_id = #{tagId}
+                )
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (a.title LIKE CONCAT('%', #{keyword}, '%')
+                     OR a.summary LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+    </select>
+
+    <!-- 查询文章详情 -->
+    <select id="selectArticleDetailVO" resultMap="ArticleDetailVOMap">
+        SELECT
+            a.id, a.title, a.content, a.cover_img,
+            a.view_count, a.comment_count, a.like_count,
+            a.create_time, a.update_time,
+            a.category_id, c.name AS category_name,
+            u.nickname AS author_nickname, u.avatar AS author_avatar
+        FROM blog_article a
+        LEFT JOIN blog_category c ON a.category_id = c.id
+        LEFT JOIN blog_user    u ON a.user_id = u.id
+        WHERE a.id = #{id} AND a.deleted = 0 AND a.status = 1
+    </select>
+
+    <!-- 查询归档列表 -->
+    <select id="selectArchives" resultType="com.blog.vo.ArchiveVO">
+        SELECT
+            DATE_FORMAT(create_time, '%Y年%m月') AS yearMonth,
+            COUNT(*) AS articleCount
+        FROM blog_article
+        WHERE status = 1 AND deleted = 0
+        GROUP BY yearMonth
+        ORDER BY yearMonth DESC
+    </select>
+
+    <!-- 增加浏览量 -->
+    <update id="incrementViewCount">
+        UPDATE blog_article SET view_count = view_count + #{count}
+        WHERE id = #{id}
+    </update>
+
+    <!-- insertOrUpdate（有 id 则更新，无 id 则插入） -->
+    <insert id="insertOrUpdate" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO blog_article (
+            user_id, category_id, title, content, summary, cover_img,
+            status, is_top, view_count, comment_count, like_count,
+            create_time, update_time, deleted
+        ) VALUES (
+            #{userId}, #{categoryId}, #{title}, #{content}, #{summary}, #{coverImg},
+            #{status}, #{isTop,jdbcType=INTEGER},
+            0, 0, 0,
+            NOW(), NOW(), 0
+        )
+        ON DUPLICATE KEY UPDATE
+            category_id  = VALUES(category_id),
+            title        = VALUES(title),
+            content      = VALUES(content),
+            summary      = VALUES(summary),
+            cover_img    = VALUES(cover_img),
+            status       = VALUES(status),
+            is_top       = VALUES(is_top),
+            update_time  = NOW()
+    </insert>
+
+</mapper>
